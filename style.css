@@ -335,3 +335,114 @@ footer p { margin-bottom: 4px; }
   .hero-card, .panel { border-radius: 20px; }
   .goal-row { align-items: end; }
 }
+
+
+/* Latest Pickup */
+.pickup-panel {
+  background:
+    radial-gradient(circle at 100% 0%, rgba(143,188,232,.12), transparent 34%),
+    var(--panel);
+}
+
+.status-chip {
+  flex: 0 0 auto;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(168,213,186,.12);
+  color: var(--good);
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: .04em;
+}
+
+.status-chip.ended {
+  background: rgba(240,165,165,.10);
+  color: var(--danger);
+}
+
+.status-chip.upcoming {
+  background: rgba(240,207,140,.10);
+  color: var(--warn);
+}
+
+.pickup-card {
+  margin-top: 15px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: rgba(255,255,255,.035);
+}
+
+.pickup-updated {
+  margin-bottom: 7px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.pickup-card h4 {
+  margin: 0 0 8px;
+  font-size: 18px;
+  line-height: 1.45;
+}
+
+.pickup-period {
+  margin-bottom: 14px;
+  color: var(--accent-2);
+  font-size: 13px;
+}
+
+.pickup-servants {
+  padding: 13px 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+.pickup-label {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .08em;
+}
+
+.servant-chip {
+  display: inline-block;
+  margin: 0 6px 6px 0;
+  padding: 7px 9px;
+  border-radius: 10px;
+  background: rgba(143,188,232,.09);
+  color: var(--accent-2);
+  font-size: 12px;
+}
+
+.pickup-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 13px;
+}
+
+.pickup-countdown {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.official-link {
+  flex: 0 0 auto;
+  padding: 9px 11px;
+  border-radius: 12px;
+  background: rgba(143,188,232,.12);
+  color: var(--accent-2);
+  text-decoration: none;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+@media (max-width: 430px) {
+  .pickup-footer {
+    align-items: flex-end;
+  }
+}

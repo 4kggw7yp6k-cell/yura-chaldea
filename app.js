@@ -1,6 +1,67 @@
 
 const STORAGE_KEY = "yuraChaldeaStateV001";
 
+
+// ===== Latest FGO Pickup =====
+// 公式発表をもとに更新。次回以降はこのオブジェクトを書き換えるだけでPU欄を更新できます。
+const latestPickup = {
+  updatedAt: "2026-09-08 15:20",
+  title: "3500万DL記念ピックアップ召喚",
+  start: "2026-09-02T18:00:00+09:00",
+  end: "2026-09-16T12:59:00+09:00",
+  periodText: "2026/9/2 18:00 ～ 9/16 12:59",
+  servants: [
+    "★5 アルトリア･キャスター〔バーサーカー〕",
+    "パッションリップ〔セイバー〕",
+    "ラーヴァ／ティアマト〔アーチャー〕",
+    "メリュジーヌ〔ルーラー〕",
+    "BB",
+    "玉兎",
+    "ほか全12騎・6種類の召喚"
+  ],
+  officialUrl: "https://news.fate-go.jp/2026/09/3500man_pu/"
+};
+
+function renderPickup() {
+  const now = new Date();
+  const start = new Date(latestPickup.start);
+  const end = new Date(latestPickup.end);
+
+  $("pickupTitle").textContent = latestPickup.title;
+  $("pickupPeriod").textContent = latestPickup.periodText;
+  $("pickupUpdated").textContent = `情報更新：${latestPickup.updatedAt}`;
+  $("pickupOfficialLink").href = latestPickup.officialUrl;
+
+  $("pickupServants").innerHTML = latestPickup.servants
+    .map(name => `<span class="servant-chip">${escapeHtml(name)}</span>`)
+    .join("");
+
+  const status = $("pickupStatus");
+  const countdown = $("pickupCountdown");
+
+  status.classList.remove("ended", "upcoming");
+
+  if (now < start) {
+    status.textContent = "開催予定";
+    status.classList.add("upcoming");
+    const hours = Math.ceil((start - now) / 3600000);
+    countdown.textContent = `開始まで約${hours}時間`;
+  } else if (now <= end) {
+    status.textContent = "開催中";
+    const diffMs = end - now;
+    const days = Math.floor(diffMs / 86400000);
+    const hours = Math.ceil((diffMs % 86400000) / 3600000);
+    countdown.textContent = days > 0
+      ? `終了まで約${days}日${hours}時間`
+      : `終了まで約${hours}時間`;
+  } else {
+    status.textContent = "終了";
+    status.classList.add("ended");
+    countdown.textContent = "このピックアップは終了しました";
+  }
+}
+
+
 const defaultState = {
   stone: 0,
   ticket: 0,
@@ -226,3 +287,6 @@ if ("serviceWorker" in navigator) {
 }
 
 render();
+renderPickup();
+
+setInterval(renderPickup, 60 * 1000);

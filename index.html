@@ -35,6 +35,37 @@
       <p id="yuraComment" class="yura-comment">ユラ「まずは現在地を登録するのじゃ。」</p>
     </section>
 
+
+    <section class="panel pickup-panel">
+      <div class="panel-head">
+        <div>
+          <p class="eyebrow">LATEST PICKUP</p>
+          <h3>最新ピックアップ</h3>
+        </div>
+        <span id="pickupStatus" class="status-chip">確認中</span>
+      </div>
+
+      <div class="pickup-card">
+        <p id="pickupUpdated" class="pickup-updated"></p>
+        <h4 id="pickupTitle">最新情報を読み込み中...</h4>
+        <p id="pickupPeriod" class="pickup-period"></p>
+
+        <div class="pickup-servants">
+          <span class="pickup-label">主なPU</span>
+          <div id="pickupServants"></div>
+        </div>
+
+        <div class="pickup-footer">
+          <p id="pickupCountdown" class="pickup-countdown"></p>
+          <a id="pickupOfficialLink"
+             class="official-link"
+             href="https://news.fate-go.jp/"
+             target="_blank"
+             rel="noopener noreferrer">公式を見る ↗</a>
+        </div>
+      </div>
+    </section>
+
     <section class="stats-grid">
       <article class="stat-card">
         <span>聖晶石</span>
@@ -142,11 +173,11 @@
         <input id="chatInput" type="text" placeholder="ユラさん、このガチャ引いていい？" />
         <button id="chatSendBtn" class="primary-btn compact" type="button">送信</button>
       </div>
-      <p class="note">※ Ver.0.01は端末内の簡易判定です。OpenAI API連携は未接続です。</p>
+      <p class="note">※ Ver.0.02。ユラさん相談はまだ端末内の簡易判定です。OpenAI API連携は未接続です。</p>
     </section>
 
     <footer>
-      <p>YURA Chaldea Ver.0.01</p>
+      <p>YURA Chaldea Ver.0.02</p>
       <p>データはこの端末のブラウザ内に保存されます。</p>
     </footer>
   </main>
