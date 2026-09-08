@@ -1,0 +1,22 @@
+{
+  "name": "YURA Chaldea",
+  "short_name": "YURA",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#08111f",
+  "theme_color": "#111827",
+  "description": "FGOの聖晶石・呼符・聖晶片を管理する簡易PWA",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ],
+  "scope": "./"
+}

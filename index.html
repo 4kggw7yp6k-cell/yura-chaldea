@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#111827" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="YURA Chaldea" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <title>YURA Chaldea</title>
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="icon-180.png" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <main class="app-shell">
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">FGO SUMMON STOCK MANAGER</p>
+        <h1>YURA Chaldea</h1>
+      </div>
+      <button id="resetBtn" class="ghost-btn" type="button">初期化</button>
+    </header>
+
+    <section class="hero-card">
+      <div class="hero-copy">
+        <span class="badge">マリー・オルタ貯蔵計画</span>
+        <h2>現在の召喚資産</h2>
+      </div>
+      <div class="summon-total">
+        <strong id="totalPulls">0</strong>
+        <span>連分</span>
+      </div>
+      <p id="yuraComment" class="yura-comment">ユラ「まずは現在地を登録するのじゃ。」</p>
+    </section>
+
+    <section class="stats-grid">
+      <article class="stat-card">
+        <span>聖晶石</span>
+        <strong id="stoneValue">0</strong>
+        <small>個</small>
+      </article>
+      <article class="stat-card">
+        <span>呼符</span>
+        <strong id="ticketValue">0</strong>
+        <small>枚</small>
+      </article>
+      <article class="stat-card">
+        <span>聖晶片</span>
+        <strong id="fragmentValue">0</strong>
+        <small>個</small>
+      </article>
+      <article class="stat-card accent">
+        <span>天井まで</span>
+        <strong id="remainingPulls">330</strong>
+        <small>連</small>
+      </article>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <div>
+          <p class="eyebrow">UPDATE</p>
+          <h3>残高を更新</h3>
+        </div>
+      </div>
+
+      <div class="input-grid">
+        <label>
+          種類
+          <select id="resourceType">
+            <option value="stone">聖晶石</option>
+            <option value="ticket">呼符</option>
+            <option value="fragment">聖晶片</option>
+          </select>
+        </label>
+        <label>
+          増減
+          <select id="operationType">
+            <option value="add">増やす</option>
+            <option value="subtract">使う</option>
+          </select>
+        </label>
+        <label class="wide">
+          数量
+          <input id="amountInput" type="number" min="1" inputmode="numeric" placeholder="例：30" />
+        </label>
+        <label class="wide">
+          メモ
+          <input id="memoInput" type="text" maxlength="60" placeholder="例：ログインボーナス / 10連" />
+        </label>
+      </div>
+
+      <button id="saveBtn" class="primary-btn" type="button">記録する</button>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <div>
+          <p class="eyebrow">TARGET</p>
+          <h3>貯蔵目標</h3>
+        </div>
+      </div>
+      <div class="goal-row">
+        <label>
+          天井連数
+          <input id="targetPullsInput" type="number" min="1" max="9999" value="330" />
+        </label>
+        <button id="saveTargetBtn" class="secondary-btn" type="button">目標を保存</button>
+      </div>
+      <div class="progress-track" aria-label="召喚目標進捗">
+        <div id="progressBar" class="progress-bar"></div>
+      </div>
+      <p id="progressText" class="muted">0 / 330連</p>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <div>
+          <p class="eyebrow">HISTORY</p>
+          <h3>履歴</h3>
+        </div>
+        <button id="clearHistoryBtn" class="ghost-btn" type="button">履歴削除</button>
+      </div>
+      <div id="historyList" class="history-list">
+        <p class="empty">まだ記録はありません。</p>
+      </div>
+    </section>
+
+    <section class="panel chat-panel">
+      <div class="panel-head">
+        <div>
+          <p class="eyebrow">YURA</p>
+          <h3>ユラさん相談</h3>
+        </div>
+      </div>
+      <div id="chatBox" class="chat-box">
+        <div class="bubble yura">「このガチャ引いていい？」などと入力すると、現在の残高を見て簡易判定するぞい。</div>
+      </div>
+      <div class="chat-input-row">
+        <input id="chatInput" type="text" placeholder="ユラさん、このガチャ引いていい？" />
+        <button id="chatSendBtn" class="primary-btn compact" type="button">送信</button>
+      </div>
+      <p class="note">※ Ver.0.01は端末内の簡易判定です。OpenAI API連携は未接続です。</p>
+    </section>
+
+    <footer>
+      <p>YURA Chaldea Ver.0.01</p>
+      <p>データはこの端末のブラウザ内に保存されます。</p>
+    </footer>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
