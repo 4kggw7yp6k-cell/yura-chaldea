@@ -1,14 +1,16 @@
 #!/usr/bin/env python3
 """
-YURA Chaldea - FGO JP latest pickup updater (Ver.0.03d)
+YURA Chaldea - FGO JP latest pickup updater
+Final safe version / Ver.0.03e
 
-Fix:
-FGO公式のお知らせ一覧は、リンク文字列だけでは
-「ピックアップ召喚」を判定できないことがあります。
-そこで一覧から公式記事URLを集め、各記事そのものを開いて
-タイトルと開催期間を確認します。
+方針:
+- FGO公式サイトから最新の「ピックアップ召喚」記事を自動検出
+- タイトル / 開催期間 / 公式URL は自動更新
+- サーヴァント一覧は誤検出防止を最優先
+- 確認済みページは安全なリストを表示
+- 未確認の新PUは、無理に本文解析せず空欄にしてアプリ側で「公式で確認」と表示
 
-APIキー不要 / 情報源はFate/Grand Order日本版公式サイト。
+APIキー不要。
 """
 
 from __future__ import annotations
@@ -31,45 +33,9 @@ INDEX_URLS = [
 ]
 BASE = "https://news.fate-go.jp/"
 JST = timezone(timedelta(hours=9))
-UA = "YURA-Chaldea-Pickup-Updater/1.4 (+GitHub Actions)"
-
-# 現在の公式PUについて、抽出失敗時に復旧できる確認済みリスト。
-# 将来のPUではこの辞書に依存せず、検証に失敗した場合は誤情報を出さない。
-KNOWN_SERVANT_LISTS = {
-    "https://news.fate-go.jp/2026/09/halloween2026_cp_pu/": [
-        "★5 エリザベート･バートリー",
-        "★5 クレオパトラ",
-        "★5 呼延灼〔アサシン〕",
-        "★5 ジャック･ド･モレー〔フォーリナー〕",
-        "★5 シトナイ",
-        "★4 ゼノビア",
-        "★4 ヴラド三世〔EXTRA〕",
-        "★4 エリザベート･バートリー",
-        "★4 黄飛虎",
-    ]
-}
-
-EXPECTED_COUNT_RE = re.compile(r"を含む(?P<count>\\d+)騎")
-
-
-def expected_servant_count(text: str) -> int | None:
-    m = EXPECTED_COUNT_RE.search(text)
-    return int(m["count"]) if m else None
-
-
-def servant_list_is_sane(items: list[str], expected: int | None) -> bool:
-    if not items:
-        return False
-    if expected is not None and len(items) != expected:
-        return False
-    bad_words = ("聖晶石", "確定", "回目", "霊基再臨", "概念礼装", "召喚")
-    return all(
-        re.match(r"^★[345] .+", item) and not any(w in item for w in bad_words)
-        for item in items
-    )
+UA = "YURA-Chaldea-Pickup-Updater/2.0 (+GitHub Actions)"
 
 ARTICLE_PATH_RE = re.compile(r"^/20\d{2}/\d{2}/[^/]+/?$")
-DATE_IN_PATH_RE = re.compile(r"/(?P<y>20\d{2})/(?P<m>\d{2})/")
 
 PERIOD_RE = re.compile(
     r"(?P<sy>\d{4})年(?P<sm>\d{1,2})月(?P<sd>\d{1,2})日"
@@ -79,17 +45,21 @@ PERIOD_RE = re.compile(
     r"(?:\([^)]+\))?\s*(?P<eh>\d{1,2}):(?P<emin>\d{2})"
 )
 
-PUBLISHED_RE = re.compile(
-    r"(?P<y>20\d{2})[./年](?P<m>\d{1,2})[./月](?P<d>\d{1,2})日?"
-)
-
-PICKUP_TARGET_RE = re.compile(
-    r"〖ピックアップ対象〗(?P<body>.*?)(?:サーヴァントの詳細はこちら|概念礼装の詳細はこちら|期間限定イベント|ピックアップ期間中)",
-    re.S
-)
-SERVANT_LINE_RE = re.compile(
-    r"★(?P<rarity>[345])\((?:SSR|SR|R)\)(?P<name>[^★\n]{1,80})"
-)
+# 公式で確認済みの安全なPU一覧。
+# URLの「path」で照合するので、末尾スラッシュやクエリ差異で壊れない。
+KNOWN_SERVANT_LISTS = {
+    "/2026/09/halloween2026_cp_pu/": [
+        "★5 エリザベート･バートリー",
+        "★5 クレオパトラ",
+        "★5 呼延灼(アサシン)",
+        "★5 ジャック･ド･モレー(フォーリナー)",
+        "★5 シトナイ",
+        "★4 ゼノビア",
+        "★4 ヴラド三世〔EXTRA〕",
+        "★4 エリザベート･バートリー",
+        "★4 黄飛虎",
+    ]
+}
 
 
 def get(url: str) -> requests.Response:
@@ -108,15 +78,26 @@ def clean_title(s: str) -> str:
     s = clean_text(s)
     s = re.sub(r"\s*\|\s*Fate/Grand Order.*$", "", s)
     s = s.replace("〖期間限定〗", "").replace("【期間限定】", "")
-    return s.strip()
+    return s.strip(" !！")
+
+
+def normalize_article_url(url: str) -> str:
+    p = urlparse(url)
+    path = p.path
+    if not path.endswith("/"):
+        path += "/"
+    return f"https://news.fate-go.jp{path}"
+
+
+def article_path(url: str) -> str:
+    p = urlparse(url)
+    path = p.path
+    if not path.endswith("/"):
+        path += "/"
+    return path
 
 
 def collect_article_urls() -> list[str]:
-    """
-    Collect article URLs from both the general news index and gacha index.
-    We do NOT depend on anchor text because FGO's markup can separate the
-    visible title from the clickable element.
-    """
     urls = []
     seen = set()
 
@@ -131,10 +112,7 @@ def collect_article_urls() -> list[str]:
             if not ARTICLE_PATH_RE.match(p.path):
                 continue
 
-            normalized = f"https://news.fate-go.jp{p.path}"
-            if not normalized.endswith("/"):
-                normalized += "/"
-
+            normalized = normalize_article_url(href)
             if normalized not in seen:
                 seen.add(normalized)
                 urls.append(normalized)
@@ -145,28 +123,14 @@ def collect_article_urls() -> list[str]:
     return urls
 
 
-def parse_published_date(soup: BeautifulSoup, url: str) -> datetime:
-    # First, try text shown on the article.
-    text = " ".join(soup.stripped_strings)
-    m = PUBLISHED_RE.search(text[:1200])
-    if m:
-        return datetime(int(m["y"]), int(m["m"]), int(m["d"]), tzinfo=JST)
-
-    # Fallback to year/month in URL, day 1. This is only for sorting.
-    m = DATE_IN_PATH_RE.search(urlparse(url).path)
-    if m:
-        return datetime(int(m["y"]), int(m["m"]), 1, tzinfo=JST)
-
-    return datetime(1970, 1, 1, tzinfo=JST)
-
-
-def parse_period(text: str) -> tuple[datetime, datetime, str]:
+def parse_period(text: str):
     m = PERIOD_RE.search(text)
     if not m:
         raise ValueError("開催期間を読み取れませんでした")
 
     sy = int(m["sy"])
     sm, sd, sh, smin = map(int, (m["sm"], m["sd"], m["sh"], m["smin"]))
+
     ey = int(m["ey"]) if m["ey"] else sy
     em, ed, eh, emin = map(int, (m["em"], m["ed"], m["eh"], m["emin"]))
 
@@ -176,123 +140,52 @@ def parse_period(text: str) -> tuple[datetime, datetime, str]:
     start = datetime(sy, sm, sd, sh, smin, tzinfo=JST)
     end = datetime(ey, em, ed, eh, emin, tzinfo=JST)
     period = f"{sy}/{sm}/{sd} {sh:02d}:{smin:02d} ～ {em}/{ed} {eh:02d}:{emin:02d}"
+
     return start, end, period
 
 
-def normalize_servant_name(name: str) -> str:
-    name = clean_text(name)
+def extract_article_title(soup: BeautifulSoup, text: str) -> str:
+    candidates = []
 
-    # Remove category labels or prose that can follow a name.
-    stops = [
-        "▼", "期間限定サーヴァント", "ストーリー召喚サーヴァント",
-        "恒常サーヴァント", "期間限定概念礼装", "概念礼装",
-        "サーヴァントの詳細はこちら", "概念礼装の詳細はこちら"
-    ]
-    for stop in stops:
-        if stop in name:
-            name = name.split(stop, 1)[0]
+    title_tag = soup.find("title")
+    if title_tag:
+        candidates.append(clean_title(" ".join(title_tag.stripped_strings)))
 
-    name = re.split(r"(?:を含む|をピックアップ|がピックアップ|について|※)", name, maxsplit=1)[0]
-    return name.strip(" ・。、！! ")
+    og = soup.find("meta", attrs={"property": "og:title"})
+    if og and og.get("content"):
+        candidates.append(clean_title(og["content"]))
 
+    for h1 in soup.find_all("h1"):
+        t = clean_title(" ".join(h1.stripped_strings))
+        if t:
+            candidates.append(t)
 
-def extract_servants(text: str) -> list[str]:
-    """
-    Ver.0.03c:
-    FGO公式本文には「★4以上確定」「聖晶石1個」などの召喚説明が大量に含まれるため、
-    広い正規表現では誤検出しやすい。
+    for title in candidates:
+        if "ピックアップ召喚" in title:
+            return title
 
-    そこで、概念礼装セクションより前にある
-      「★5(SSR)サーヴァント名」
-      「★4(SR)サーヴァント名」
-      「★3(R)サーヴァント名」
-    のような、公式がカギ括弧付きで明示した表記だけを採用する。
+    if "ピックアップ召喚" in text:
+        m = re.search(
+            r"(?:〖期間限定〗)?[『「].{1,160}?ピックアップ召喚.{0,15}?[』」！!]",
+            text
+        )
+        if m:
+            return clean_title(m.group(0))
 
-    取りこぼしは許容し、誤情報を出さないことを優先する。
-    """
-    area = text
-
-    # CE欄以降は絶対に見ない。
-    if "期間限定概念礼装" in area:
-        area = area.split("期間限定概念礼装", 1)[0]
-
-    quoted = re.compile(
-        r"「★(?P<rarity>[345])\((?P<label>SSR|SR|R)\)(?P<name>[^」]{1,60})」"
-    )
-
-    banned = (
-        "以上", "確定", "召喚", "概念礼装", "サーヴァント",
-        "聖晶石", "呼符", "回目", "枚", "個", "コイン",
-        "霊基再臨", "イラスト", "セイントグラフ", "宝具"
-    )
-
-    result = []
-    seen = set()
-
-    for m in quoted.finditer(area):
-        rarity = m["rarity"]
-        name = clean_text(m["name"]).strip(" ・。、！! ")
-
-        if not name or len(name) > 50:
-            continue
-        if any(word in name for word in banned):
-            continue
-        if re.match(r"^\d", name):
-            continue
-
-        key = (rarity, name)
-        if key in seen:
-            continue
-        seen.add(key)
-        result.append(f"★{rarity} {name}")
-
-    return result
+    return ""
 
 
 def find_latest_pickup():
     now = datetime.now(JST)
-    article_urls = collect_article_urls()
-
     candidates = []
 
-    # Limit network load. Official indexes are newest-first, so recent URLs
-    # normally appear near the top.
-    for url in article_urls[:40]:
+    # 公式一覧は新しい記事が先に出るため、上位40件だけ確認。
+    for url in collect_article_urls()[:40]:
         try:
             r = get(url)
             soup = BeautifulSoup(r.text, "html.parser")
             text = " ".join(soup.stripped_strings)
-
-            # FGO公式では最初のh1が記事タイトルとは限らないため、
-            # <title> → og:title → h1 → 本文の順で判定する。
-            title_candidates = []
-
-            title_tag = soup.find("title")
-            if title_tag:
-                title_candidates.append(clean_title(" ".join(title_tag.stripped_strings)))
-
-            og = soup.find("meta", attrs={"property": "og:title"})
-            if og and og.get("content"):
-                title_candidates.append(clean_title(og["content"]))
-
-            for h1 in soup.find_all("h1"):
-                t = clean_title(" ".join(h1.stripped_strings))
-                if t:
-                    title_candidates.append(t)
-
-            title = next(
-                (t for t in title_candidates if "ピックアップ召喚" in t),
-                ""
-            )
-
-            # 最終フォールバック：本文中にPU召喚表記がある記事も拾う。
-            if not title and "ピックアップ召喚" in text:
-                m_title = re.search(
-                    r"(?:〖期間限定〗)?[『「].{1,140}?ピックアップ召喚.{0,10}?[』」！!]",
-                    text
-                )
-                if m_title:
-                    title = clean_title(m_title.group(0))
+            title = extract_article_title(soup, text)
 
             if "ピックアップ召喚" not in title:
                 continue
@@ -302,29 +195,26 @@ def find_latest_pickup():
             except ValueError:
                 continue
 
-            published = parse_published_date(soup, url)
-            servants = extract_servants(text)
-
             candidates.append({
                 "title": title,
-                "url": url,
+                "url": normalize_article_url(url),
                 "start": start,
                 "end": end,
                 "periodText": period_text,
-                "published": published,
-                "servants": servants,
-                "expectedCount": expected_servant_count(text),
             })
+
         except Exception as e:
             print(f"Skip {url}: {e}")
 
     if not candidates:
-        raise RuntimeError("公式記事を確認しましたが、ピックアップ召喚の記事を見つけられませんでした。")
+        raise RuntimeError(
+            "公式記事を確認しましたが、ピックアップ召喚の記事を見つけられませんでした。"
+        )
 
-    # Prefer currently running/upcoming pickup with the newest start time.
     active_or_upcoming = [c for c in candidates if c["end"] >= now]
     pool = active_or_upcoming or candidates
-    pool.sort(key=lambda c: (c["start"], c["published"]), reverse=True)
+    pool.sort(key=lambda c: c["start"], reverse=True)
+
     return pool[0]
 
 
@@ -339,7 +229,7 @@ def semantic_payload(d: dict) -> dict:
     }
 
 
-def main() -> None:
+def main():
     latest = find_latest_pickup()
 
     previous = {}
@@ -349,25 +239,19 @@ def main() -> None:
         except Exception:
             previous = {}
 
-    servants = latest["servants"]
-    expected = latest.get("expectedCount")
+    path = article_path(latest["url"])
 
-    # 1) 公式ページごとの確認済み復旧データがある場合はそれを最優先。
-    if latest["url"] in KNOWN_SERVANT_LISTS:
-        servants = KNOWN_SERVANT_LISTS[latest["url"]]
+    # 安全な既知リストがある記事だけ自動でサーヴァント一覧を表示。
+    if path in KNOWN_SERVANT_LISTS:
+        servants = KNOWN_SERVANT_LISTS[path]
 
-    # 2) 自動抽出結果は、公式本文の「○騎」と数が一致する場合だけ採用。
-    elif not servant_list_is_sane(servants, expected):
-        # 同じ記事について、既存データがすでに正しく検証済みなら維持。
-        previous_servants = previous.get("servants", [])
-        if (
-            previous.get("officialUrl") == latest["url"]
-            and servant_list_is_sane(previous_servants, expected)
-        ):
-            servants = previous_servants
-        else:
-            # 誤情報を表示するくらいなら空欄にし、アプリ側で「公式で確認」と出す。
-            servants = []
+    # 同じ記事なら、すでに保存済みの正しい一覧を維持。
+    elif previous.get("officialUrl") == latest["url"]:
+        servants = previous.get("servants", [])
+
+    # 新しい未知のPUは誤情報を出さず、アプリ側の「公式で確認」に退避。
+    else:
+        servants = []
 
     candidate = {
         "schemaVersion": 1,
@@ -396,10 +280,7 @@ def main() -> None:
     print("Updated pickup.json")
     print(candidate["title"])
     print(candidate["officialUrl"])
-    if servants:
-        print("Servants:", " / ".join(servants))
-    else:
-        print("Servant list was not extracted; official link is still available.")
+    print("Servants:", " / ".join(servants) if servants else "official page only")
 
 
 if __name__ == "__main__":
