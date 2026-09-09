@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-YURA Chaldea - FGO JP latest pickup updater (Ver.0.03b)
+YURA Chaldea - FGO JP latest pickup updater (Ver.0.03c)
 
 Fix:
 FGO公式のお知らせ一覧は、リンク文字列だけでは
@@ -31,7 +31,7 @@ INDEX_URLS = [
 ]
 BASE = "https://news.fate-go.jp/"
 JST = timezone(timedelta(hours=9))
-UA = "YURA-Chaldea-Pickup-Updater/1.2 (+GitHub Actions)"
+UA = "YURA-Chaldea-Pickup-Updater/1.3 (+GitHub Actions)"
 
 ARTICLE_PATH_RE = re.compile(r"^/20\d{2}/\d{2}/[^/]+/?$")
 DATE_IN_PATH_RE = re.compile(r"/(?P<y>20\d{2})/(?P<m>\d{2})/")
@@ -163,25 +163,46 @@ def normalize_servant_name(name: str) -> str:
 
 def extract_servants(text: str) -> list[str]:
     """
-    Prefer the official '〖ピックアップ対象〗' block so Craft Essences
-    are not mistaken for servants.
-    """
-    m = PICKUP_TARGET_RE.search(text)
-    search_area = m["body"] if m else text[:5000]
+    Ver.0.03c:
+    FGO公式本文には「★4以上確定」「聖晶石1個」などの召喚説明が大量に含まれるため、
+    広い正規表現では誤検出しやすい。
 
-    # If category markers exist, only keep servant sections before CE section.
-    if "期間限定概念礼装" in search_area:
-        search_area = search_area.split("期間限定概念礼装", 1)[0]
-    if "概念礼装" in search_area:
-        search_area = search_area.split("概念礼装", 1)[0]
+    そこで、概念礼装セクションより前にある
+      「★5(SSR)サーヴァント名」
+      「★4(SR)サーヴァント名」
+      「★3(R)サーヴァント名」
+    のような、公式がカギ括弧付きで明示した表記だけを採用する。
+
+    取りこぼしは許容し、誤情報を出さないことを優先する。
+    """
+    area = text
+
+    # CE欄以降は絶対に見ない。
+    if "期間限定概念礼装" in area:
+        area = area.split("期間限定概念礼装", 1)[0]
+
+    quoted = re.compile(
+        r"「★(?P<rarity>[345])\((?P<label>SSR|SR|R)\)(?P<name>[^」]{1,60})」"
+    )
+
+    banned = (
+        "以上", "確定", "召喚", "概念礼装", "サーヴァント",
+        "聖晶石", "呼符", "回目", "枚", "個", "コイン",
+        "霊基再臨", "イラスト", "セイントグラフ", "宝具"
+    )
 
     result = []
     seen = set()
 
-    for m in SERVANT_LINE_RE.finditer(search_area):
+    for m in quoted.finditer(area):
         rarity = m["rarity"]
-        name = normalize_servant_name(m["name"])
-        if not name or len(name) > 60:
+        name = clean_text(m["name"]).strip(" ・。、！! ")
+
+        if not name or len(name) > 50:
+            continue
+        if any(word in name for word in banned):
+            continue
+        if re.match(r"^\d", name):
             continue
 
         key = (rarity, name)
