@@ -2,25 +2,50 @@
 const STORAGE_KEY = "yuraChaldeaStateV001";
 
 
-// ===== Latest FGO Pickup =====
-// 公式発表をもとに更新。次回以降はこのオブジェクトを書き換えるだけでPU欄を更新できます。
-const latestPickup = {
-  updatedAt: "2026-09-08 15:20",
-  title: "3500万DL記念ピックアップ召喚",
-  start: "2026-09-02T18:00:00+09:00",
-  end: "2026-09-16T12:59:00+09:00",
-  periodText: "2026/9/2 18:00 ～ 9/16 12:59",
+// ===== Latest FGO Pickup / Ver.0.03 =====
+// pickup.json は GitHub Actions がFGO公式サイトを定期確認して自動更新します。
+// アプリ側は常に pickup.json を読み込み、失敗時だけ内蔵フォールバックを使います。
+let latestPickup = {
+  updatedAt: "2026-09-09 18:00",
+  title: "「くたばれ！ パンプキンファーム･スローター」開幕直前ピックアップ召喚",
+  start: "2026-09-09T18:00:00+09:00",
+  end: "2026-09-23T12:59:00+09:00",
+  periodText: "2026/9/9 18:00 ～ 9/23 12:59",
   servants: [
-    "★5 アルトリア･キャスター〔バーサーカー〕",
-    "パッションリップ〔セイバー〕",
-    "ラーヴァ／ティアマト〔アーチャー〕",
-    "メリュジーヌ〔ルーラー〕",
-    "BB",
-    "玉兎",
-    "ほか全12騎・6種類の召喚"
+    "★5 エリザベート･バートリー",
+    "★5 クレオパトラ",
+    "★5 呼延灼〔アサシン〕",
+    "★5 ジャック･ド･モレー〔フォーリナー〕",
+    "★5 シトナイ",
+    "★4 ゼノビア",
+    "★4 ヴラド三世〔EXTRA〕",
+    "★4 エリザベート･バートリー",
+    "★4 黄飛虎"
   ],
-  officialUrl: "https://news.fate-go.jp/2026/09/3500man_pu/"
+  officialUrl: "https://news.fate-go.jp/2026/09/halloween2026_cp_pu/",
+  source: "Fate/Grand Order 公式サイト",
+  autoUpdated: false
 };
+
+async function loadLatestPickup() {
+  try {
+    const response = await fetch(`./pickup.json?t=${Date.now()}`, {
+      cache: "no-store"
+    });
+    if (!response.ok) throw new Error(`pickup.json: ${response.status}`);
+    const data = await response.json();
+
+    if (!data || !data.title || !data.start || !data.end || !data.officialUrl) {
+      throw new Error("pickup.json format error");
+    }
+
+    latestPickup = data;
+  } catch (error) {
+    console.warn("最新PU情報の取得に失敗。内蔵データを使用します。", error);
+  }
+
+  renderPickup();
+}
 
 function renderPickup() {
   const now = new Date();
@@ -28,24 +53,29 @@ function renderPickup() {
   const end = new Date(latestPickup.end);
 
   $("pickupTitle").textContent = latestPickup.title;
-  $("pickupPeriod").textContent = latestPickup.periodText;
-  $("pickupUpdated").textContent = `情報更新：${latestPickup.updatedAt}`;
+  $("pickupPeriod").textContent = latestPickup.periodText || "";
+  $("pickupUpdated").textContent =
+    `情報更新：${latestPickup.updatedAt || "不明"}${latestPickup.autoUpdated ? " ・ 自動更新" : ""}`;
   $("pickupOfficialLink").href = latestPickup.officialUrl;
 
-  $("pickupServants").innerHTML = latestPickup.servants
-    .map(name => `<span class="servant-chip">${escapeHtml(name)}</span>`)
-    .join("");
+  const servants = Array.isArray(latestPickup.servants) ? latestPickup.servants : [];
+  $("pickupServants").innerHTML = servants.length
+    ? servants.map(name => `<span class="servant-chip">${escapeHtml(name)}</span>`).join("")
+    : `<span class="servant-chip">公式ページで確認</span>`;
 
   const status = $("pickupStatus");
   const countdown = $("pickupCountdown");
-
   status.classList.remove("ended", "upcoming");
 
   if (now < start) {
     status.textContent = "開催予定";
     status.classList.add("upcoming");
-    const hours = Math.ceil((start - now) / 3600000);
-    countdown.textContent = `開始まで約${hours}時間`;
+    const diffMs = start - now;
+    const days = Math.floor(diffMs / 86400000);
+    const hours = Math.ceil((diffMs % 86400000) / 3600000);
+    countdown.textContent = days > 0
+      ? `開始まで約${days}日${hours}時間`
+      : `開始まで約${hours}時間`;
   } else if (now <= end) {
     status.textContent = "開催中";
     const diffMs = end - now;
@@ -259,7 +289,7 @@ function localYuraReply(message) {
     return `えらいぞ、りゅう。現在${pulls}連分じゃ。ちゃんと貯蔵できておる。`;
   }
 
-  return `現在は${pulls}連分。目標まであと${remaining}連じゃ。Ver.0.01なので、今は残高ベースの簡易相談だけできるぞい。`;
+  return `現在は${pulls}連分。目標まであと${remaining}連じゃ。Ver.0.03なので、今は残高ベースの簡易相談だけできるぞい。`;
 }
 
 $("chatSendBtn").addEventListener("click", sendChat);
@@ -287,6 +317,7 @@ if ("serviceWorker" in navigator) {
 }
 
 render();
-renderPickup();
+loadLatestPickup();
 
 setInterval(renderPickup, 60 * 1000);
+setInterval(loadLatestPickup, 15 * 60 * 1000);
