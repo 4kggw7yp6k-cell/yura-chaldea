@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-YURA Chaldea - FGO JP latest pickup updater (Ver.0.03c)
+YURA Chaldea - FGO JP latest pickup updater (Ver.0.03d)
 
 Fix:
 FGO公式のお知らせ一覧は、リンク文字列だけでは
@@ -31,7 +31,42 @@ INDEX_URLS = [
 ]
 BASE = "https://news.fate-go.jp/"
 JST = timezone(timedelta(hours=9))
-UA = "YURA-Chaldea-Pickup-Updater/1.3 (+GitHub Actions)"
+UA = "YURA-Chaldea-Pickup-Updater/1.4 (+GitHub Actions)"
+
+# 現在の公式PUについて、抽出失敗時に復旧できる確認済みリスト。
+# 将来のPUではこの辞書に依存せず、検証に失敗した場合は誤情報を出さない。
+KNOWN_SERVANT_LISTS = {
+    "https://news.fate-go.jp/2026/09/halloween2026_cp_pu/": [
+        "★5 エリザベート･バートリー",
+        "★5 クレオパトラ",
+        "★5 呼延灼〔アサシン〕",
+        "★5 ジャック･ド･モレー〔フォーリナー〕",
+        "★5 シトナイ",
+        "★4 ゼノビア",
+        "★4 ヴラド三世〔EXTRA〕",
+        "★4 エリザベート･バートリー",
+        "★4 黄飛虎",
+    ]
+}
+
+EXPECTED_COUNT_RE = re.compile(r"を含む(?P<count>\\d+)騎")
+
+
+def expected_servant_count(text: str) -> int | None:
+    m = EXPECTED_COUNT_RE.search(text)
+    return int(m["count"]) if m else None
+
+
+def servant_list_is_sane(items: list[str], expected: int | None) -> bool:
+    if not items:
+        return False
+    if expected is not None and len(items) != expected:
+        return False
+    bad_words = ("聖晶石", "確定", "回目", "霊基再臨", "概念礼装", "召喚")
+    return all(
+        re.match(r"^★[345] .+", item) and not any(w in item for w in bad_words)
+        for item in items
+    )
 
 ARTICLE_PATH_RE = re.compile(r"^/20\d{2}/\d{2}/[^/]+/?$")
 DATE_IN_PATH_RE = re.compile(r"/(?P<y>20\d{2})/(?P<m>\d{2})/")
@@ -278,6 +313,7 @@ def find_latest_pickup():
                 "periodText": period_text,
                 "published": published,
                 "servants": servants,
+                "expectedCount": expected_servant_count(text),
             })
         except Exception as e:
             print(f"Skip {url}: {e}")
@@ -314,11 +350,24 @@ def main() -> None:
             previous = {}
 
     servants = latest["servants"]
+    expected = latest.get("expectedCount")
 
-    # If extraction is conservative and gets nothing for the same article,
-    # preserve the previously confirmed list instead of erasing it.
-    if not servants and previous.get("officialUrl") == latest["url"]:
-        servants = previous.get("servants", [])
+    # 1) 公式ページごとの確認済み復旧データがある場合はそれを最優先。
+    if latest["url"] in KNOWN_SERVANT_LISTS:
+        servants = KNOWN_SERVANT_LISTS[latest["url"]]
+
+    # 2) 自動抽出結果は、公式本文の「○騎」と数が一致する場合だけ採用。
+    elif not servant_list_is_sane(servants, expected):
+        # 同じ記事について、既存データがすでに正しく検証済みなら維持。
+        previous_servants = previous.get("servants", [])
+        if (
+            previous.get("officialUrl") == latest["url"]
+            and servant_list_is_sane(previous_servants, expected)
+        ):
+            servants = previous_servants
+        else:
+            # 誤情報を表示するくらいなら空欄にし、アプリ側で「公式で確認」と出す。
+            servants = []
 
     candidate = {
         "schemaVersion": 1,
