@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-YURA Chaldea - FGO JP latest pickup updater (Ver.0.03a)
+YURA Chaldea - FGO JP latest pickup updater (Ver.0.03b)
 
 Fix:
 FGO公式のお知らせ一覧は、リンク文字列だけでは
@@ -31,7 +31,7 @@ INDEX_URLS = [
 ]
 BASE = "https://news.fate-go.jp/"
 JST = timezone(timedelta(hours=9))
-UA = "YURA-Chaldea-Pickup-Updater/1.1 (+GitHub Actions)"
+UA = "YURA-Chaldea-Pickup-Updater/1.2 (+GitHub Actions)"
 
 ARTICLE_PATH_RE = re.compile(r"^/20\d{2}/\d{2}/[^/]+/?$")
 DATE_IN_PATH_RE = re.compile(r"/(?P<y>20\d{2})/(?P<m>\d{2})/")
@@ -205,9 +205,38 @@ def find_latest_pickup():
         try:
             r = get(url)
             soup = BeautifulSoup(r.text, "html.parser")
-            title_node = soup.find("h1") or soup.find("title")
-            title = clean_title(" ".join(title_node.stripped_strings)) if title_node else ""
             text = " ".join(soup.stripped_strings)
+
+            # FGO公式では最初のh1が記事タイトルとは限らないため、
+            # <title> → og:title → h1 → 本文の順で判定する。
+            title_candidates = []
+
+            title_tag = soup.find("title")
+            if title_tag:
+                title_candidates.append(clean_title(" ".join(title_tag.stripped_strings)))
+
+            og = soup.find("meta", attrs={"property": "og:title"})
+            if og and og.get("content"):
+                title_candidates.append(clean_title(og["content"]))
+
+            for h1 in soup.find_all("h1"):
+                t = clean_title(" ".join(h1.stripped_strings))
+                if t:
+                    title_candidates.append(t)
+
+            title = next(
+                (t for t in title_candidates if "ピックアップ召喚" in t),
+                ""
+            )
+
+            # 最終フォールバック：本文中にPU召喚表記がある記事も拾う。
+            if not title and "ピックアップ召喚" in text:
+                m_title = re.search(
+                    r"(?:〖期間限定〗)?[『「].{1,140}?ピックアップ召喚.{0,10}?[』」！!]",
+                    text
+                )
+                if m_title:
+                    title = clean_title(m_title.group(0))
 
             if "ピックアップ召喚" not in title:
                 continue
