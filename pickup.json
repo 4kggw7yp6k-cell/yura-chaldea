@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-10-16 21:24",
-  "title": "『期間限定Fate/Samurai Remnant×Fate/Grand Orderコラボレーションイベント「復刻版:盈月剣風帖」』詳細情報 ■「復刻 Fate/Samurai Remnant×Fate/Grand Orderコラボレーションイベント ヤマトタケルピックアップ召喚」",
-  "start": "2026-10-16T18:00:00+09:00",
-  "end": "2026-11-04T12:59:00+09:00",
-  "periodText": "2026/10/16 18:00 ～ 11/4 12:59",
+  "updatedAt": "2026-10-23 22:26",
+  "title": "『「冠位名代戦」 タマモアリアピックアップ召喚』",
+  "start": "2026-10-23T19:00:00+09:00",
+  "end": "2026-10-25T23:59:00+09:00",
+  "periodText": "2026/10/23 19:00 ～ 10/25 23:59",
   "servants": [],
-  "officialUrl": "https://news.fate-go.jp/2026/10/re_sr_collaboration_pu4/",
+  "officialUrl": "https://news.fate-go.jp/2026/10/grand_substitute/",
   "source": "Fate/Grand Order 公式サイト",
   "autoUpdated": true
 }
